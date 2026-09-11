@@ -4,108 +4,108 @@ use PHPMailer\PHPMailer\Exception;
 use PHPMailer\PHPMailer\SMTP;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['action']) && $_POST['action'] === 'booking_request' || isset($_POST['fname']))) {
-    header('Content-Type: application/json; charset=UTF-8');
+  header('Content-Type: application/json; charset=UTF-8');
 
-    // Load Composer Autoloader
-    if (file_exists(__DIR__ . '/vendor/autoload.php')) {
-        require_once __DIR__ . '/vendor/autoload.php';
+  // Load Composer Autoloader
+  if (file_exists(__DIR__ . '/vendor/autoload.php')) {
+    require_once __DIR__ . '/vendor/autoload.php';
+  } else {
+    echo json_encode([
+      'status' => 'error',
+      'message' => 'PHPMailer vendor autoload not found.'
+    ]);
+    exit;
+  }
+
+  // ─── SMTP CONFIGURATION ───
+  $smtpHost = 'smtp.gmail.com';
+  $smtpPort = 587; // 587 for STARTTLS, 465 for SMTPS
+  $smtpUsername = 'matrixproject10@gmail.com';
+  $smtpPassword = trim(str_replace(' ', '', 'ribjurckllkuoiil'));
+  $fromEmail = 'matrixproject10@gmail.com';
+  $fromName = 'RR Detailers Booking';
+  $recipientEmail = 'info@rrdetailers.com';
+  $recipientName = 'RR Detailers Team';
+
+  // Sanitize and validate inputs
+  $name = isset($_POST['fname']) ? trim(filter_var($_POST['fname'], FILTER_SANITIZE_SPECIAL_CHARS)) : '';
+  $phone = isset($_POST['fphone']) ? trim(filter_var($_POST['fphone'], FILTER_SANITIZE_SPECIAL_CHARS)) : '';
+  $email = isset($_POST['femail']) ? trim(filter_var($_POST['femail'], FILTER_SANITIZE_EMAIL)) : '';
+  $vehicle = isset($_POST['fvehicle']) ? trim(filter_var($_POST['fvehicle'], FILTER_SANITIZE_SPECIAL_CHARS)) : '';
+  $service = isset($_POST['fservice']) ? trim(filter_var($_POST['fservice'], FILTER_SANITIZE_SPECIAL_CHARS)) : '';
+  $date = isset($_POST['fdate']) ? trim(filter_var($_POST['fdate'], FILTER_SANITIZE_SPECIAL_CHARS)) : '';
+  $msg = isset($_POST['fmsg']) ? trim(filter_var($_POST['fmsg'], FILTER_SANITIZE_SPECIAL_CHARS)) : '';
+
+  if (empty($name) || empty($phone) || empty($vehicle) || empty($service)) {
+    echo json_encode([
+      'status' => 'error',
+      'message' => 'Please fill in all required fields (Name, Phone, Vehicle, and Service).'
+    ]);
+    exit;
+  }
+
+  // Validate 10-digit mobile number
+  $cleanPhone = preg_replace('/\D/', '', $phone);
+  if (strlen($cleanPhone) !== 10) {
+    echo json_encode([
+      'status' => 'error',
+      'message' => 'Please provide a valid 10-digit mobile number.'
+    ]);
+    exit;
+  }
+
+  // Validate email address format if provided
+  if (!empty($email) && !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+    echo json_encode([
+      'status' => 'error',
+      'message' => 'Please enter a valid email address.'
+    ]);
+    exit;
+  }
+
+  $mail = new PHPMailer(true);
+
+  try {
+    // Server settings
+    $mail->isSMTP();
+    $mail->Host = $smtpHost;
+    $mail->SMTPAuth = true;
+    $mail->Username = $smtpUsername;
+    $mail->Password = $smtpPassword;
+    $mail->Port = (int) $smtpPort;
+    $mail->CharSet = 'UTF-8';
+
+    if ((int) $smtpPort === 465) {
+      $mail->SMTPSecure = PHPMailer::ENCRYPTION_SMTPS;
     } else {
-        echo json_encode([
-            'status' => 'error',
-            'message' => 'PHPMailer vendor autoload not found.'
-        ]);
-        exit;
+      $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
     }
 
-    // ─── SMTP CONFIGURATION ───
-    $smtpHost       = 'smtp.gmail.com';
-    $smtpPort       = 587; // 587 for STARTTLS, 465 for SMTPS
-    $smtpUsername   = 'matrixproject10@gmail.com';
-    $smtpPassword   = trim(str_replace(' ', '', 'ribjurckllkuoiil'));
-    $fromEmail      = 'matrixproject10@gmail.com';
-    $fromName       = 'RR Detailers Booking';
-    $recipientEmail = 'info@rrdetailers.com';
-    $recipientName  = 'RR Detailers Team';
+    // SSL stream options to allow secure sending in local/Windows environments
+    $mail->SMTPOptions = [
+      'ssl' => [
+        'verify_peer' => false,
+        'verify_peer_name' => false,
+        'allow_self_signed' => true
+      ]
+    ];
 
-    // Sanitize and validate inputs
-    $name    = isset($_POST['fname']) ? trim(filter_var($_POST['fname'], FILTER_SANITIZE_SPECIAL_CHARS)) : '';
-    $phone   = isset($_POST['fphone']) ? trim(filter_var($_POST['fphone'], FILTER_SANITIZE_SPECIAL_CHARS)) : '';
-    $email   = isset($_POST['femail']) ? trim(filter_var($_POST['femail'], FILTER_SANITIZE_EMAIL)) : '';
-    $vehicle = isset($_POST['fvehicle']) ? trim(filter_var($_POST['fvehicle'], FILTER_SANITIZE_SPECIAL_CHARS)) : '';
-    $service = isset($_POST['fservice']) ? trim(filter_var($_POST['fservice'], FILTER_SANITIZE_SPECIAL_CHARS)) : '';
-    $date    = isset($_POST['fdate']) ? trim(filter_var($_POST['fdate'], FILTER_SANITIZE_SPECIAL_CHARS)) : '';
-    $msg     = isset($_POST['fmsg']) ? trim(filter_var($_POST['fmsg'], FILTER_SANITIZE_SPECIAL_CHARS)) : '';
-
-    if (empty($name) || empty($phone) || empty($vehicle) || empty($service)) {
-        echo json_encode([
-            'status' => 'error',
-            'message' => 'Please fill in all required fields (Name, Phone, Vehicle, and Service).'
-        ]);
-        exit;
+    // Recipients
+    $mail->setFrom($fromEmail, $fromName);
+    $mail->addAddress($recipientEmail, $recipientName);
+    if (!empty($email) && filter_var($email, FILTER_VALIDATE_EMAIL)) {
+      $mail->addReplyTo($email, $name);
     }
 
-    // Validate 10-digit mobile number
-    $cleanPhone = preg_replace('/\D/', '', $phone);
-    if (strlen($cleanPhone) !== 10) {
-        echo json_encode([
-            'status' => 'error',
-            'message' => 'Please provide a valid 10-digit mobile number.'
-        ]);
-        exit;
-    }
+    // Email Content Formatting
+    $preferredDate = !empty($date) ? date('d M Y', strtotime($date)) : 'Flexible / Earliest Available';
+    $customerNotes = !empty($msg) ? nl2br(htmlspecialchars($msg)) : 'None provided';
+    $customerEmail = !empty($email) ? htmlspecialchars($email) : 'Not provided';
 
-    // Validate email address format if provided
-    if (!empty($email) && !filter_var($email, FILTER_VALIDATE_EMAIL)) {
-        echo json_encode([
-            'status' => 'error',
-            'message' => 'Please enter a valid email address.'
-        ]);
-        exit;
-    }
+    $mail->isHTML(true);
+    $mail->Subject = 'New Booking Request: ' . $service . ' - ' . $name;
 
-    $mail = new PHPMailer(true);
-
-    try {
-        // Server settings
-        $mail->isSMTP();
-        $mail->Host       = $smtpHost;
-        $mail->SMTPAuth   = true;
-        $mail->Username   = $smtpUsername;
-        $mail->Password   = $smtpPassword;
-        $mail->Port       = (int)$smtpPort;
-        $mail->CharSet    = 'UTF-8';
-
-        if ((int)$smtpPort === 465) {
-            $mail->SMTPSecure = PHPMailer::ENCRYPTION_SMTPS;
-        } else {
-            $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
-        }
-
-        // SSL stream options to allow secure sending in local/Windows environments
-        $mail->SMTPOptions = [
-            'ssl' => [
-                'verify_peer' => false,
-                'verify_peer_name' => false,
-                'allow_self_signed' => true
-            ]
-        ];
-
-        // Recipients
-        $mail->setFrom($fromEmail, $fromName);
-        $mail->addAddress($recipientEmail, $recipientName);
-        if (!empty($email) && filter_var($email, FILTER_VALIDATE_EMAIL)) {
-            $mail->addReplyTo($email, $name);
-        }
-
-        // Email Content Formatting
-        $preferredDate = !empty($date) ? date('d M Y', strtotime($date)) : 'Flexible / Earliest Available';
-        $customerNotes = !empty($msg) ? nl2br(htmlspecialchars($msg)) : 'None provided';
-        $customerEmail = !empty($email) ? htmlspecialchars($email) : 'Not provided';
-
-        $mail->isHTML(true);
-        $mail->Subject = 'New Booking Request: ' . $service . ' - ' . $name;
-
-        $mail->Body = "
+    $mail->Body = "
         <div style='background-color:#0d0d0d; color:#f3f4f6; font-family: Arial, sans-serif; padding:30px 20px; line-height:1.6;'>
             <div style='max-width:600px; margin:0 auto; background-color:#181818; border:1px solid rgba(232, 119, 34, 0.35); border-radius:12px; overflow:hidden; box-shadow:0 8px 30px rgba(0,0,0,0.7);'>
                 <div style='background: linear-gradient(135deg, #E87722, #c96010); padding:24px; text-align:center;'>
@@ -152,31 +152,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['action']) && $_POST[
             </div>
         </div>";
 
-        $mail->AltBody = "New Booking Request\n\n" .
-            "Name: " . $name . "\n" .
-            "Phone: " . $cleanPhone . "\n" .
-            "Email: " . $customerEmail . "\n" .
-            "Vehicle: " . $vehicle . "\n" .
-            "Service: " . $service . "\n" .
-            "Date: " . $preferredDate . "\n\n" .
-            "Notes: " . $msg;
+    $mail->AltBody = "New Booking Request\n\n" .
+      "Name: " . $name . "\n" .
+      "Phone: " . $cleanPhone . "\n" .
+      "Email: " . $customerEmail . "\n" .
+      "Vehicle: " . $vehicle . "\n" .
+      "Service: " . $service . "\n" .
+      "Date: " . $preferredDate . "\n\n" .
+      "Notes: " . $msg;
 
-        $mail->send();
+    $mail->send();
 
-        echo json_encode([
-            'status' => 'success',
-            'message' => 'Thank you! Your booking request has been sent successfully. We will get back to you shortly.'
-        ]);
-        exit;
-    } catch (Exception $e) {
-        $errorMsg = $mail->ErrorInfo ?: $e->getMessage();
-        @file_put_contents(__DIR__ . '/mail_debug.log', date('Y-m-d H:i:s') . ' - Error: ' . $errorMsg . PHP_EOL, FILE_APPEND);
-        echo json_encode([
-            'status' => 'error',
-            'message' => 'Mailer Error: ' . $errorMsg
-        ]);
-        exit;
-    }
+    echo json_encode([
+      'status' => 'success',
+      'message' => 'Thank you! Your booking request has been sent successfully. We will get back to you shortly.'
+    ]);
+    exit;
+  } catch (Exception $e) {
+    $errorMsg = $mail->ErrorInfo ?: $e->getMessage();
+    @file_put_contents(__DIR__ . '/mail_debug.log', date('Y-m-d H:i:s') . ' - Error: ' . $errorMsg . PHP_EOL, FILE_APPEND);
+    echo json_encode([
+      'status' => 'error',
+      'message' => 'Mailer Error: ' . $errorMsg
+    ]);
+    exit;
+  }
 }
 ?>
 <!DOCTYPE html>
@@ -205,11 +205,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['action']) && $_POST[
       s.parentNode.insertBefore(t, s)
     }(window, document, 'script',
       'https://connect.facebook.net/en_US/fbevents.js');
-    fbq('init', 'YOUR_PIXEL_ID');
+    fbq('init', '1380048540102377');
     fbq('track', 'PageView');
   </script>
   <noscript><img height="1" width="1" style="display:none"
-      src="https://www.facebook.com/tr?id=YOUR_PIXEL_ID&ev=PageView&noscript=1" /></noscript>
+      src="https://www.facebook.com/tr?id=1380048540102377&ev=PageView&noscript=1" /></noscript>
   <!-- End Meta Pixel Code -->
   <style>
     :root {
@@ -1904,8 +1904,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['action']) && $_POST[
     }
 
     @keyframes btn-spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
+      0% {
+        transform: rotate(0deg);
+      }
+
+      100% {
+        transform: rotate(360deg);
+      }
     }
 
     .btn-spinner {
@@ -2127,11 +2132,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['action']) && $_POST[
       border: none;
       box-shadow: 0 4px 14px rgba(225, 48, 108, 0.35);
     }
+
     .f-soc-ig svg {
       stroke: #fff;
       fill: none;
       stroke-width: 2;
     }
+
     .f-soc-ig:hover {
       transform: translateY(-3px) scale(1.08);
       box-shadow: 0 6px 20px rgba(225, 48, 108, 0.55);
@@ -2142,10 +2149,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['action']) && $_POST[
       border: none;
       box-shadow: 0 4px 14px rgba(24, 119, 242, 0.35);
     }
+
     .f-soc-fb svg {
       stroke: #fff;
       fill: #fff;
     }
+
     .f-soc-fb:hover {
       transform: translateY(-3px) scale(1.08);
       box-shadow: 0 6px 20px rgba(24, 119, 242, 0.55);
@@ -2156,6 +2165,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['action']) && $_POST[
       border: none;
       box-shadow: 0 4px 14px rgba(255, 0, 0, 0.35);
     }
+
     .f-soc-yt:hover {
       transform: translateY(-3px) scale(1.08);
       box-shadow: 0 6px 20px rgba(255, 0, 0, 0.55);
@@ -2166,10 +2176,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['action']) && $_POST[
       border: none;
       box-shadow: 0 4px 14px rgba(37, 211, 102, 0.35);
     }
+
     .f-soc-wa svg {
       fill: #fff;
       stroke: none;
     }
+
     .f-soc-wa:hover {
       transform: translateY(-3px) scale(1.08);
       box-shadow: 0 6px 20px rgba(37, 211, 102, 0.55);
@@ -4078,7 +4090,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['action']) && $_POST[
               </div>
             </div>
             <div class="info-card">
-              <div class="info-card-icon" style="background: rgba(37, 211, 102, 0.15); border: 1px solid rgba(37, 211, 102, 0.35);">
+              <div class="info-card-icon"
+                style="background: rgba(37, 211, 102, 0.15); border: 1px solid rgba(37, 211, 102, 0.35);">
                 <svg viewBox="0 0 24 24" style="stroke:none; fill:#25D366; width:22px; height:22px;">
                   <path
                     d="M12.04 2c-5.46 0-9.91 4.45-9.91 9.91 0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38c1.45.79 3.08 1.21 4.74 1.21 5.46 0 9.91-4.45 9.91-9.91 0-2.65-1.03-5.14-2.9-7.01A9.816 9.816 0 0 0 12.04 2m.01 1.67c2.2 0 4.26.86 5.82 2.42a8.225 8.225 0 0 1 2.41 5.83c0 4.54-3.7 8.24-8.24 8.24-1.48 0-2.93-.4-4.2-1.15l-.3-.18-3.12.82.83-3.04-.2-.31a8.196 8.196 0 0 1-1.26-4.38c0-4.54 3.7-8.24 8.24-8.24m4.52 11.53c-.25-.13-1.47-.72-1.7-.81-.23-.09-.39-.13-.56.13-.17.25-.64.81-.79.97-.14.17-.29.19-.54.06-.25-.13-1.06-.39-2.03-1.25-.75-.67-1.26-1.5-1.41-1.75-.14-.25-.02-.39.11-.51.11-.11.25-.29.37-.44.13-.14.17-.25.25-.41.08-.17.04-.31-.02-.44-.06-.13-.56-1.34-.76-1.84-.2-.49-.4-.42-.56-.43h-.48c-.17 0-.44.06-.67.31-.23.25-.88.86-.88 2.1s.9 2.43 1.03 2.6c.13.17 1.77 2.7 4.28 3.79.6.26 1.07.41 1.43.53.6.19 1.15.16 1.58.1.48-.07 1.47-.6 1.68-1.18.21-.58.21-1.07.14-1.18-.06-.11-.23-.18-.48-.31z" />
@@ -4105,7 +4118,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['action']) && $_POST[
               </div>
               <div class="form-group">
                 <label class="form-label" for="fphone">Phone Number (10 Digits)</label>
-                <input class="form-input" type="tel" id="fphone" placeholder="10-digit mobile number" maxlength="10" inputmode="numeric" autocomplete="tel" />
+                <input class="form-input" type="tel" id="fphone" placeholder="10-digit mobile number" maxlength="10"
+                  inputmode="numeric" autocomplete="tel" />
               </div>
             </div>
             <div class="form-group">
@@ -4226,20 +4240,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['action']) && $_POST[
       <div class="footer-bottom">
         <div class="footer-copy">© 2026 RR Detailers. All rights reserved. Made with care in Pune.</div>
         <div class="footer-soc">
-          <a class="f-soc f-soc-ig" href="https://www.instagram.com/rrdetailers.in?igsi=MTVkN202NmNrc2lvdg==" target="_blank"
-            rel="noopener noreferrer" aria-label="Instagram" title="Follow us on Instagram"><svg viewBox="0 0 24 24">
+          <a class="f-soc f-soc-ig" href="https://www.instagram.com/rrdetailers.in?igsi=MTVkN202NmNrc2lvdg=="
+            target="_blank" rel="noopener noreferrer" aria-label="Instagram" title="Follow us on Instagram"><svg
+              viewBox="0 0 24 24">
               <rect x="2" y="2" width="20" height="20" rx="5" ry="5" />
               <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
               <line x1="17.5" y1="6.5" x2="17.51" y2="6.5" />
             </svg></a>
-          <a class="f-soc f-soc-fb" href="https://www.facebook.com/share/1HGNgZJCUq/" target="_blank" rel="noopener noreferrer"
-            aria-label="Facebook" title="Follow us on Facebook"><svg viewBox="0 0 24 24">
+          <a class="f-soc f-soc-fb" href="https://www.facebook.com/share/1HGNgZJCUq/" target="_blank"
+            rel="noopener noreferrer" aria-label="Facebook" title="Follow us on Facebook"><svg viewBox="0 0 24 24">
               <path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z" />
             </svg></a>
           <a class="f-soc f-soc-yt" href="https://youtube.com/@rrdetailers?si=LYVSVtjLKKywkroo" target="_blank"
-            rel="noopener noreferrer" aria-label="YouTube" title="Subscribe on YouTube"><svg viewBox="0 0 24 24" width="22" height="22" fill="none">
-              <path fill="#ffffff" d="M21.58 7.19a2.5 2.5 0 0 0-1.76-1.77C18.26 5 12 5 12 5s-6.26 0-7.82.42A2.5 2.5 0 0 0 2.42 7.19C2 8.75 2 12 2 12s0 3.25.42 4.81a2.5 2.5 0 0 0 1.76 1.77C5.74 19 12 19 12 19s6.26 0 7.82-.42a2.5 2.5 0 0 0 1.76-1.77C22 15.25 22 12 22 12s0-3.25-.42-4.81z"/>
-              <polygon fill="#FF0000" points="10 15 15.2 12 10 9"/>
+            rel="noopener noreferrer" aria-label="YouTube" title="Subscribe on YouTube"><svg viewBox="0 0 24 24"
+              width="22" height="22" fill="none">
+              <path fill="#ffffff"
+                d="M21.58 7.19a2.5 2.5 0 0 0-1.76-1.77C18.26 5 12 5 12 5s-6.26 0-7.82.42A2.5 2.5 0 0 0 2.42 7.19C2 8.75 2 12 2 12s0 3.25.42 4.81a2.5 2.5 0 0 0 1.76 1.77C5.74 19 12 19 12 19s6.26 0 7.82-.42a2.5 2.5 0 0 0 1.76-1.77C22 15.25 22 12 22 12s0-3.25-.42-4.81z" />
+              <polygon fill="#FF0000" points="10 15 15.2 12 10 9" />
             </svg></a>
         </div>
       </div>
@@ -4720,9 +4737,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['action']) && $_POST[
         btn.style.background = 'linear-gradient(135deg,#a32d2d,#7a1e1e)';
         btn.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> Please fill Name, Phone, Vehicle & Service';
         showToast('Please fill all required fields.', 'error');
-        setTimeout(() => { 
-          btn.style.background = ''; 
-          btn.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg> Submit Booking Request'; 
+        setTimeout(() => {
+          btn.style.background = '';
+          btn.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg> Submit Booking Request';
         }, 3000);
         return;
       }
@@ -4732,9 +4749,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['action']) && $_POST[
         btn.style.background = 'linear-gradient(135deg,#a32d2d,#7a1e1e)';
         btn.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> Enter 10-digit mobile number';
         showToast('Please enter a valid 10-digit mobile number.', 'error');
-        setTimeout(() => { 
-          btn.style.background = ''; 
-          btn.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg> Submit Booking Request'; 
+        setTimeout(() => {
+          btn.style.background = '';
+          btn.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg> Submit Booking Request';
         }, 3000);
         return;
       }
@@ -4744,9 +4761,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['action']) && $_POST[
         btn.style.background = 'linear-gradient(135deg,#a32d2d,#7a1e1e)';
         btn.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> Enter valid email address';
         showToast('Please enter a valid email address (e.g. name@example.com).', 'error');
-        setTimeout(() => { 
-          btn.style.background = ''; 
-          btn.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg> Submit Booking Request'; 
+        setTimeout(() => {
+          btn.style.background = '';
+          btn.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg> Submit Booking Request';
         }, 3000);
         return;
       }
@@ -4777,6 +4794,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['action']) && $_POST[
           btn.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Request Submitted!';
           btn.style.background = 'linear-gradient(135deg,#3a6d11,#2a5a09)';
           showToast(data.message || 'Thank you! Your booking request has been submitted.', 'success');
+          if (typeof fbq === 'function') {
+            fbq('track', 'Lead', { content_name: service, content_category: vehicle });
+          }
           ['fname', 'fphone', 'femail', 'fmsg', 'fdate'].forEach(id => {
             const el = document.getElementById(id);
             if (el) el.value = '';
@@ -4810,7 +4830,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['action']) && $_POST[
       const t = document.getElementById('toast');
       if (!t) return;
       if (msg) {
-        const icon = type === 'error' 
+        const icon = type === 'error'
           ? '<svg viewBox="0 0 24 24" width="20" height="20" stroke="#ff6b6b" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> '
           : '<svg viewBox="0 0 24 24" width="20" height="20" stroke="#82db6e" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> ';
         t.style.borderColor = type === 'error' ? 'rgba(255, 107, 107, 0.4)' : 'rgba(100, 200, 80, 0.3)';
