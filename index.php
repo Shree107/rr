@@ -24,7 +24,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['action']) && $_POST[
     $smtpPassword   = trim(str_replace(' ', '', 'ribjurckllkuoiil'));
     $fromEmail      = 'matrixproject10@gmail.com';
     $fromName       = 'RR Detailers Booking';
-    $recipientEmail = 'vshreedhar07@gmail.com';
+    $recipientEmail = 'info@rrdetailers.com';
     $recipientName  = 'RR Detailers Team';
 
     // Sanitize and validate inputs
@@ -4074,7 +4074,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['action']) && $_POST[
               </div>
               <div>
                 <div class="info-label">Email</div>
-                <div class="info-value"><a href="mailto:rrdetailers3939@gmail.com">rrdetailers3939@gmail.com</a></div>
+                <div class="info-value"><a href="mailto:info@rrdetailers.com">info@rrdetailers.com</a></div>
               </div>
             </div>
             <div class="info-card">
@@ -4216,7 +4216,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['action']) && $_POST[
           <div class="footer-ci"><svg viewBox="0 0 24 24">
               <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
               <polyline points="22,6 12,13 2,6" />
-            </svg><span><a href="mailto:rrdetailers3939@gmail.com">rrdetailers3939@gmail.com</a></span></div>
+            </svg><span><a href="mailto:info@rrdetailers.com">info@rrdetailers.com</a></span></div>
           <div class="footer-ci"><svg viewBox="0 0 24 24">
               <circle cx="12" cy="12" r="10" />
               <polyline points="12 6 12 12 16 14" />
